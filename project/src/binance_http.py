@@ -28,6 +28,10 @@ class BinanceHTTP:
         self.session = requests.Session()
         self.limiter = RateLimiter(DATA_CONFIG.rate_limit_per_sec)
 
+    def _reset_session(self) -> None:
+        self.session.close()
+        self.session = requests.Session()
+
     def get(self, path: str, params: dict[str, Any]) -> Any:
         url = f"{self.base_url}{path}"
         last_exception: Exception | None = None
@@ -46,6 +50,7 @@ class BinanceHTTP:
                 return response.json()
             except requests.RequestException as exc:
                 last_exception = exc
+                self._reset_session()
                 time.sleep(DATA_CONFIG.retry_backoff_sec * (attempt + 1))
         details = []
         if last_status is not None:
