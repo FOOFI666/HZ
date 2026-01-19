@@ -30,18 +30,32 @@ class BinanceHTTP:
 
     def get(self, path: str, params: dict[str, Any]) -> Any:
         url = f"{self.base_url}{path}"
+        last_exception: Exception | None = None
+        last_status: int | None = None
+        last_body: str | None = None
         for attempt in range(DATA_CONFIG.max_retries):
             self.limiter.wait()
             try:
                 response = self.session.get(url, params=params, timeout=15)
-                if response.status_code == 429:
+                last_status = response.status_code
+                if response.status_code in {418, 429}:
+                    last_body = response.text
                     time.sleep(DATA_CONFIG.retry_backoff_sec * (attempt + 1))
                     continue
                 response.raise_for_status()
                 return response.json()
-            except requests.RequestException:
+            except requests.RequestException as exc:
+                last_exception = exc
                 time.sleep(DATA_CONFIG.retry_backoff_sec * (attempt + 1))
-        raise RuntimeError(f"Failed request after retries: {url}")
+        details = []
+        if last_status is not None:
+            details.append(f"status={last_status}")
+        if last_body:
+            details.append(f"body={last_body[:200]}")
+        if last_exception:
+            details.append(f"error={last_exception}")
+        suffix = f" ({', '.join(details)})" if details else ""
+        raise RuntimeError(f"Failed request after retries: {url}{suffix}")
 
 
 SPOT_HTTP = BinanceHTTP("https://api.binance.com")
