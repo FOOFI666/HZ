@@ -1,0 +1,4 @@
+project/data/**/*.parquet
+project/data/**/summary.txt
+project/data/**/metrics.json
+project/data/**/params.json
